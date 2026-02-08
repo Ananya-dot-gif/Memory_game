@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>🧠 Memory Game</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background: #f0f0f0;
+        }
+
+        #game-board {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+            gap: 15px;
+            max-width: 600px;
+            margin: 20px auto;
+        }
+
+        .card {
+            width: 80px;
+            height: 80px;
+            background: #4CAF50;
+            border-radius: 10px;
+            cursor: pointer;
+            perspective: 1000px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 32px;
+            color: transparent;
+            user-select: none;
+            transition: transform 0.5s;
+            box-shadow: 2px 2px 6px rgba(0,0,0,0.3);
+        }
+
+        .card.revealed {
+            transform: rotateY(180deg);
+            color: black;
+            background: #FFC107;
+        }
+
+        .card.matched {
+            background: #2196F3;
+            color: #fff;
+            cursor: default;
+            transform: rotateY(0deg);
+        }
+
+        button {
+            padding: 10px 15px;
+            margin: 5px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧠 Memory Game</h1>
+
+    <!-- Difficulty Buttons -->
+    <div>
+        <button onclick="setLevel(8)">Easy</button>
+        <button onclick="setLevel(12)">Medium</button>
+        <button onclick="setLevel(16)">Hard</button>
+    </div>
+
+    <!-- Score & Timer -->
+    <h2>Score: <span id="score">100</span></h2>
+    <h2>⏱ Time: <span id="timer">0</span> seconds</h2>
+    <h2>🏆 Best Time: <span id="best-time">9999</span> seconds</h2>
+
+    <h2 id="game-message" style="color: green;"></h2>
+
+    <button onclick="resetGame()">🔄 Restart Game</button>
+    <button onclick="showAllCards()">👀 Show All Cards Hint</button>
+
+    <!-- Game Board -->
+    <div id="game-board">
+        {% for card in cards %}
+            <div class="card" onclick="revealCard(this)" data-letter="{{ card }}">
+                {{ card }}
+            </div>
+        {% endfor %}
+    </div>
+
+    <script>
+        let score = 100;
+        let matchedPairs = 0;
+        let busy = false; // prevent clicking while flipping back
+
+        const cards = document.querySelectorAll(".card");
+        const totalPairs = cards.length / 2;
+        const timerEl = document.getElementById("timer");
+
+        /* Hide letters initially */
+        cards.forEach(c => c.style.color = "transparent");
+
+        /* TIMER */
+        let time = 0;
+        let timerInterval = setInterval(() => {
+            time++;
+            timerEl.innerText = time;
+        }, 1000);
+
+        /* BEST TIME */
+        let bestTime = localStorage.getItem("bestTime") || 9999;
+        document.getElementById("best-time").innerText = bestTime;
+
+        function setLevel(level) {
+            window.location.href = `/?level=${level}`;
+        }
+
+        function revealCard(card) {
+            if (busy || card.classList.contains("revealed") || card.classList.contains("matched")) return;
+
+            card.classList.add("revealed");
+            card.style.color = "black"; // show letter
+
+            const revealedCards = Array.from(cards).filter(c => c.classList.contains("revealed") && !c.classList.contains("matched"));
+
+            if (revealedCards.length === 2) {
+                const [first, second] = revealedCards;
+                if (first.dataset.letter === second.dataset.letter) {
+                    first.classList.add("matched");
+                    second.classList.add("matched");
+                    matchedPairs++;
+                    checkGameOver();
+                } else {
+                    // Wrong pair → flip back after short delay
+                    score -= 4;
+                    document.getElementById("score").innerText = score;
+                    busy = true;
+                    setTimeout(() => {
+                        first.classList.remove("revealed");
+                        second.classList.remove("revealed");
+                        first.style.color = "transparent";
+                        second.style.color = "transparent";
+                        busy = false;
+                    }, 1000); // 1 second flip back
+                    checkGameOver();
+                }
+            }
+        }
+
+        function showAllCards() {
+            cards.forEach(c => c.style.color = "black");
+            cards.forEach(c => c.classList.add("revealed"));
+
+            setTimeout(() => {
+                cards.forEach(c => {
+                    if (!c.classList.contains("matched")) {
+                        c.style.color = "transparent";
+                        c.classList.remove("revealed");
+                    }
+                });
+            }, 10000); // 10 sec hint
+        }
+
+        function checkGameOver() {
+            if (matchedPairs === totalPairs) {
+                clearInterval(timerInterval);
+                document.getElementById("game-message").innerText =
+                    `🎉 You won the game in ${time} seconds!`;
+
+                if (time < bestTime) {
+                    bestTime = time;
+                    localStorage.setItem("bestTime", bestTime);
+                    document.getElementById("best-time").innerText = bestTime;
+                }
+            }
+
+            if (score <= 0) {
+                clearInterval(timerInterval);
+                document.getElementById("game-message").innerText =
+                    "😢 Game Over! Score reached 0";
+                busy = true; // prevent further clicks
+            }
+        }
+
+        function resetGame() {
+            location.reload();
+        }
+    </script>
+</body>
+</html>
+
+
+
+
+
+
+
+
